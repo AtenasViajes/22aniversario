@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>22 Aniversario - Atenas Agencia de Viajes</title>
+    <!-- Importamos Tailwind CSS para diseño responsivo rápido -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Importamos librería para el Confeti Premium -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <!-- Importamos html2canvas para descargar el Pase de Abordar -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <!-- Importamos Google Fonts: Usamos Roboto y Roboto Condensed según el Manual de Identidad -->
+    <link href="https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@300;400;700&family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
+    
+    <style>
+        /* Configuraciones generales */
+        body {
+            font-family: 'Roboto', sans-serif;
+            background-color: #ffffff;
+            overflow-x: hidden; /* Evita el scroll horizontal por los globos */
+            position: relative;
+        }
+
+        /* Clase utilitaria para la tipografía condensada */
+        .font-condensed {
+            font-family: 'Roboto Condensed', sans-serif;
+        }
+
+        /* Colores corporativos basados en el Manual de Identidad */
+        .text-navy { color: #001233; }
+        .bg-navy { background-color: #001233; }
+        .text-gold { color: #D4AF37; }
+        .bg-gold { background-color: #D4AF37; }
+        .border-gold { border-color: #D4AF37; }
+
+        /* =========================================
+           Animaciones de Fondo (Aviones y Fuegos Artificiales)
+           ========================================= */
+        .airplane-wrapper {
+            position: fixed; /* Cambiado a fixed para que vuelen por toda la pantalla */
+            z-index: 0;
+            opacity: 0; /* Oculto por defecto */
+            animation: flyDiagonal 25s linear infinite;
+            animation-fill-mode: both; /* ¡ESTO SOLUCIONA EL AVIÓN ATASCADO! */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            pointer-events: none; /* Para que no interfieran con los clics */
+        }
+
+        .trail {
+            width: 3px;
+            height: 250px;
+            /* Efecto de línea punteada de mapa de vuelo */
+            background-image: linear-gradient(to bottom, currentColor 50%, transparent 50%);
+            background-size: 100% 20px;
+            /* Se desvanece suavemente hacia abajo */
+            -webkit-mask-image: linear-gradient(to bottom, rgba(0,0,0,1), rgba(0,0,0,0));
+            mask-image: linear-gradient(to bottom, rgba(0,0,0,1), rgba(0,0,0,0));
+            opacity: 0.6;
+            margin-top: -5px; /* Conecta la estela con la cola del avión */
+        }
+
+        @keyframes flyDiagonal {
+            0% { transform: translate(-10vw, 110vh) rotate(45deg) scale(0.8); opacity: 0; }
+            10% { opacity: 0.12; }
+            90% { opacity: 0.12; }
+            100% { transform: translate(110vw, -10vh) rotate(45deg) scale(0.8); opacity: 0; }
+        }
+
+        /* =========================================
+           Efectos de Aparición (Fade-in)
+           ========================================= */
+        .fade-element {
+            opacity: 0;
+            transform: translateY(30px);
+            transition: opacity 0.8s ease-out, transform 0.8s ease-out;
+        }
+        .fade-element.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* =========================================
+           Efectos de Brillo y Latido (Nuevos)
+           ========================================= */
+        /* Efecto Shine para el Pase de Abordar */
+        .shine-effect::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 50%;
+            height: 100%;
+            background: linear-gradient(to right, rgba(255,255,255,0) 0%, rgba(255,255,255,0.65) 50%, rgba(255,255,255,0) 100%);
+            transform: skewX(-20deg);
+            animation: shine 5s infinite;
+            pointer-events: none; /* Permite hacer clic a través del brillo */
+            z-index: 50;
+        }
+
+        @keyframes shine {
+            0% { left: -100%; }
+            20% { left: 200%; }
+            100% { left: 200%; } /* Pausa antes de volver a brillar */
+        }
+
+        /* Latido para el Botón del Calendario */
+        @keyframes heartbeat {
+            0%, 100% { transform: scale(1); }
+            15% { transform: scale(1.05); }
+            30% { transform: scale(1); }
+            45% { transform: scale(1.05); }
+            60%, 100% { transform: scale(1); }
+        }
+        .animate-heartbeat {
+            animation: heartbeat 2.5s infinite;
+        }
+
+        /* =========================================
+           Pantalla de Check-In (Carga)
+           ========================================= */
+        #loader {
+            transition: opacity 0.8s ease-out, visibility 0.8s ease-out;
+        }
+        .loader-hidden {
+            opacity: 0;
+            visibility: hidden;
+        }
+        @keyframes loadProgress {
+            0% { width: 0%; }
+            100% { width: 100%; }
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center overflow-hidden" id="body-content">
+
+    <!-- Pantalla de Check-In (Carga Inmersiva Rediseñada) -->
+    <div id="loader" class="fixed inset-0 z-[100] bg-navy flex flex-col items-center justify-center text-white">
+        
+        <!-- Ícono Premium: Avión comercial con anillo de radar giratorio -->
+        <div class="relative flex justify-center items-center mb-10">
+            <!-- Anillo exterior tenue -->
+            <div class="absolute w-24 h-24 border border-white/10 rounded-full"></div>
+            <!-- Anillo giratorio dorado -->
+            <div class="absolute w-24 h-24 border-[3px] border-gold border-t-transparent border-l-transparent rounded-full animate-spin opacity-90"></div>
+            <!-- Avión comercial apuntando en diagonal (despegue) -->
+            <svg class="w-12 h-12 text-white transform rotate-45 drop-shadow-lg" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"/>
+            </svg>
+        </div>
+
+        <!-- Texto en blanco y espaciado elegante -->
+        <h2 class="text-sm md:text-xl font-condensed tracking-[0.3em] uppercase text-white mb-6">Procesando Check-In</h2>
+        
+        <!-- Barra de progreso ultra delgada (Premium) -->
+        <div class="w-64 md:w-80 h-[2px] bg-white/10 relative overflow-hidden">
+            <div class="absolute top-0 left-0 h-full bg-gold shadow-[0_0_8px_#D4AF37]" style="animation: loadProgress 2.2s ease-out forwards;"></div>
+        </div>
+        
+        <!-- Nombre de la marca en dorado sutil -->
+        <p class="text-xs text-gold mt-6 font-condensed tracking-[0.2em] uppercase opacity-70">Atenas Agencia de Viajes</p>
+    </div>
+
+    <!-- Animaciones Decorativas: Aviones con Estela (Ruta de vuelo) -->
+    <div class="airplane-wrapper text-navy" style="left: -5%; animation-delay: 0s;">
+        <svg class="w-12 h-12 md:w-16 md:h-16" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"/>
+        </svg>
+        <div class="trail"></div>
+    </div>
+    <div class="airplane-wrapper text-gold" style="left: 30%; animation-delay: 12s; animation-duration: 35s;">
+        <svg class="w-10 h-10 md:w-12 md:h-12" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"/>
+        </svg>
+        <div class="trail"></div>
+    </div>
+    <div class="airplane-wrapper text-navy" style="left: 60%; animation-delay: 5s; animation-duration: 22s;">
+        <svg class="w-16 h-16 md:w-20 md:h-20" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"/>
+        </svg>
+        <div class="trail"></div>
+    </div>
+
+    <!-- Contenedor Principal (Con z-index para estar por encima de las animaciones) -->
+    <main class="relative z-10 w-full max-w-4xl px-6 py-12 text-center flex-grow">
+        
+        <!-- Logotipo Principal -->
+        <div class="mb-10 fade-element flex justify-center w-full">
+            <!-- Cuando subas tu logo, reemplazará automáticamente este recuadro -->
+            <img src="Logo_con_Marca_Registrada.png" alt="Atenas Agencia de Viajes" class="h-32 md:h-40 mx-auto object-contain drop-shadow-md" onerror="this.onerror=null; this.src='https://via.placeholder.com/400x150/ffffff/001233?text=AQUI+IRA+TU+LOGO';">
+        </div>
+
+        <!-- Título Personalizado Dinámico y Eslogan -->
+        <div class="mb-12 fade-element">
+            <h2 class="text-xl md:text-2xl text-gray-600 mb-2 font-condensed uppercase tracking-wider">Tenemos el honor de invitar a</h2>
+            <h1 id="guest-name" class="text-4xl md:text-6xl font-bold text-navy my-4 border-b-4 border-gold inline-block pb-2">
+                Nuestro Invitado Especial
+            </h1>
+            <p class="text-lg md:text-2xl text-navy mt-4 font-condensed italic font-light px-4">
+                "Más de dos décadas de experiencia,<br class="hidden md:block"> acompañándote de la mano por el mundo"
+            </p>
+        </div>
+
+        <!-- Detalles del Evento (Diseño Pase de Abordar HIPERREALISTA) -->
+        <!-- NOTA: Se agregaron el ID 'boarding-pass', y las clases 'shine-effect' y 'overflow-hidden' -->
+        <div id="boarding-pass" class="fade-element relative flex flex-col md:flex-row bg-white/95 backdrop-blur-md shadow-2xl rounded-2xl max-w-4xl mx-auto mb-6 border border-gray-200 text-left transform transition duration-500 hover:scale-[1.02] shine-effect overflow-hidden">
+            
+            <!-- Marca de agua de fondo (Avión sutil) -->
+            <div class="absolute inset-0 overflow-hidden rounded-2xl pointer-events-none z-0">
+                <svg class="absolute -right-10 -top-10 w-64 h-64 text-navy opacity-[0.03] transform rotate-45" fill="currentColor" viewBox="0 0 24 24"><path d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"/></svg>
+            </div>
+
+            <!-- Sección Principal del Boleto -->
+            <div class="flex-1 p-6 md:p-8 relative z-10">
+                <!-- Encabezado del Boleto (Rediseñado con logo centrado) -->
+                <div class="flex justify-between items-center mb-6 border-b-2 border-gray-100 pb-4 relative">
+                    <div class="w-1/3 text-left">
+                        <span class="block text-[10px] text-gray-400 font-bold uppercase tracking-[0.2em]">Vuelo / Flight</span>
+                        <span class="block text-xl font-bold text-navy font-condensed tracking-widest">ATN-22</span>
+                    </div>
+                    
+                    <!-- Logo centrado en el boleto -->
+                    <div class="w-1/3 flex justify-center">
+                        <img src="Logo_con_Marca_Registrada.png" alt="Atenas" class="h-8 md:h-10 opacity-90 object-contain" onerror="this.onerror=null; this.src='https://via.placeholder.com/150x40/ffffff/D4AF37?text=LOGO';">
+                    </div>
+
+                    <div class="w-1/3 text-right pl-4 border-l border-gray-200">
+                        <span class="block text-[10px] text-gray-400 font-bold uppercase tracking-[0.2em]">Clase / Class</span>
+                        <span class="block text-xl font-bold text-gold font-condensed uppercase">Premier</span>
+                    </div>
+                </div>
+
+                <!-- Origen y Destino -->
+                <div class="flex justify-between items-center mb-8 md:px-4">
+                    <div class="text-center w-1/4">
+                        <span class="block text-4xl md:text-5xl font-bold text-navy font-condensed tracking-tight">PUE</span>
+                        <!-- Se agregó mt-2 para dar más espacio a las letras de abajo -->
+                        <span class="block text-[10px] md:text-xs text-gray-500 uppercase tracking-widest mt-2">Puebla</span>
+                    </div>
+                    <div class="flex-1 flex flex-col items-center px-2 md:px-4">
+                        <!-- Nuevo ícono de avioncito apuntando al destino -->
+                        <svg class="w-6 h-6 md:w-8 md:h-8 text-gold mb-1 md:mb-2 transform rotate-90" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"/>
+                        </svg>
+                        <div class="w-full border-t-2 border-dashed border-gray-300 relative">
+                            <div class="absolute -top-1.5 left-0 w-3 h-3 rounded-full border-2 border-gray-300 bg-white"></div>
+                            <div class="absolute -top-1.5 right-0 w-3 h-3 rounded-full border-2 border-gold bg-gold shadow-[0_0_5px_#D4AF37]"></div>
+                        </div>
+                        <span class="block text-[9px] md:text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-2">Destino</span>
+                    </div>
+                    <div class="text-center w-1/4">
+                        <!-- Actualizado a ATE y Atenas -->
+                        <span class="block text-4xl md:text-5xl font-bold text-navy font-condensed tracking-tight">ATE</span>
+                        <span class="block text-[10px] md:text-xs text-gray-500 uppercase tracking-widest mt-2">Atenas</span>
+                    </div>
+                </div>
+
+                <!-- Datos del Pasajero -->
+                <div class="bg-gray-50/80 rounded-xl p-4 md:p-5 mb-6 border border-gray-100 grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div class="col-span-2 md:col-span-2">
+                        <span class="block text-[10px] text-gray-400 font-bold uppercase tracking-[0.1em] mb-1">Pasajero / Passenger</span>
+                        <!-- CORRECCIÓN: Se agregó break-words y leading-tight para evitar cortes si el nombre es muy largo -->
+                        <span id="board-guest-name" class="block text-lg md:text-xl font-bold text-navy font-condensed uppercase leading-tight pb-1 break-words">Invitado Especial</span>
+                    </div>
+                    <div>
+                        <span class="block text-[10px] text-gray-400 font-bold uppercase tracking-[0.1em] mb-1">Fecha / Date</span>
+                        <span class="block text-lg font-bold text-navy font-condensed">24 ABR</span>
+                    </div>
+                    <div>
+                        <span class="block text-[10px] text-gray-400 font-bold uppercase tracking-[0.1em] mb-1">Hora / Time</span>
+                        <span class="block text-lg font-bold text-navy font-condensed">14:00</span>
+                    </div>
+                </div>
+
+                <!-- Puerta y Asiento (Se eliminó Abordaje para evitar confusiones) -->
+                <div class="flex justify-between items-center px-1 md:px-4">
+                    <div>
+                        <span class="block text-[9px] md:text-[10px] text-gray-400 font-bold uppercase tracking-[0.1em] mb-1">Puerta / Gate</span>
+                        <span class="block text-xl md:text-2xl font-bold text-navy font-condensed">01</span>
+                    </div>
+                    <div class="text-center">
+                        <span class="block text-[9px] md:text-[10px] text-gray-400 font-bold uppercase tracking-[0.1em] mb-1">Zona / Zone</span>
+                        <span class="block text-xl md:text-2xl font-bold text-navy font-condensed">A</span>
+                    </div>
+                    <div class="text-right">
+                        <span class="block text-[9px] md:text-[10px] text-gray-400 font-bold uppercase tracking-[0.1em] mb-1 text-gold">Asiento / Seat</span>
+                        <span class="block text-3xl md:text-4xl font-bold text-navy font-condensed">22A</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- División de Troquelado (Perforación) -->
+            <!-- Versión Desktop -->
+            <div class="hidden md:flex flex-col justify-between items-center w-8 relative z-10">
+                <div class="w-6 h-6 bg-[#ffffff] rounded-full absolute -top-3 border-b border-gray-200 shadow-inner"></div>
+                <div class="h-full border-l-2 border-dashed border-gray-300 w-0 my-4"></div>
+                <div class="w-6 h-6 bg-[#ffffff] rounded-full absolute -bottom-3 border-t border-gray-200 shadow-inner"></div>
+            </div>
+            <!-- Versión Mobile -->
+            <div class="flex md:hidden justify-between items-center h-8 relative z-10 w-full overflow-hidden bg-white">
+                <div class="w-6 h-6 bg-[#ffffff] rounded-full absolute -left-3 border-r border-gray-200 shadow-inner z-20"></div>
+                <div class="w-full border-t-2 border-dashed border-gray-300 h-0 mx-4 relative z-10"></div>
+                <div class="w-6 h-6 bg-[#ffffff] rounded-full absolute -right-3 border-l border-gray-200 shadow-inner z-20"></div>
+            </div>
+
+            <!-- Sección de la Pestaña / Talón (Stub) -->
+            <div class="w-full md:w-64 bg-navy text-white p-6 flex flex-col justify-between relative z-10 overflow-hidden md:rounded-r-2xl rounded-b-2xl md:rounded-bl-none">
+                
+                <!-- Marca de agua stub -->
+                <svg class="absolute -right-4 -bottom-4 w-40 h-40 text-white opacity-5 transform rotate-12" fill="currentColor" viewBox="0 0 24 24"><path d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"/></svg>
+
+                <div class="mb-6 md:mb-0 relative z-10">
+                    <span class="block text-[10px] text-gray-400 font-bold uppercase tracking-[0.2em] mb-1">Vuelo / Flight</span>
+                    <span class="block text-2xl font-bold text-gold font-condensed mb-6 tracking-widest">ATN-22</span>
+                    
+                    <div class="flex justify-between items-center mb-6">
+                        <span class="text-3xl font-bold font-condensed tracking-tight">PUE</span>
+                        <!-- Nuevo avioncito en el talón -->
+                        <svg class="w-5 h-5 text-gold transform rotate-90" viewBox="0 0 24 24" fill="currentColor"><path d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"/></svg>
+                        <span class="text-3xl font-bold font-condensed tracking-tight">ATE</span>
+                    </div>
+                    
+                    <div class="grid grid-cols-2 gap-4 mb-2">
+                        <div>
+                            <span class="block text-[9px] text-gray-400 font-bold uppercase tracking-wider mb-1">Asiento</span>
+                            <span class="block text-2xl font-bold font-condensed">22A</span>
+                        </div>
+                        <div class="text-right">
+                            <span class="block text-[9px] text-gray-400 font-bold uppercase tracking-wider mb-1">Clase</span>
+                            <span class="block text-xl font-bold font-condensed text-gold">PRM</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Código de Barras Decorativo Realista -->
+                <div class="flex flex-col w-full mt-auto relative z-10">
+                    <div class="flex items-center justify-between h-12 w-full opacity-90 mb-2">
+                        <!-- Líneas del código de barras de diferentes grosores -->
+                        <div class="w-[2px] h-full bg-white"></div>
+                        <div class="w-[5px] h-full bg-white"></div>
+                        <div class="w-[1px] h-full bg-white"></div>
+                        <div class="w-[3px] h-4/5 bg-white self-end"></div>
+                        <div class="w-[6px] h-full bg-white"></div>
+                        <div class="w-[2px] h-full bg-white"></div>
+                        <div class="w-[1px] h-3/5 bg-white self-center"></div>
+                        <div class="w-[4px] h-full bg-white"></div>
+                        <div class="w-[2px] h-full bg-white"></div>
+                        <div class="w-[7px] h-full bg-white"></div>
+                        <div class="w-[1px] h-full bg-white"></div>
+                        <div class="w-[3px] h-4/5 bg-white self-start"></div>
+                        <div class="w-[2px] h-full bg-white"></div>
+                        <div class="w-[5px] h-full bg-white"></div>
+                        <div class="w-[2px] h-full bg-white"></div>
+                    </div>
+                    <span class="text-[10px] tracking-[0.4em] font-condensed text-white/60 text-center uppercase">ATN-2026-0424</span>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Botón de Descargar Pase (Rediseñado y Premium) -->
+        <div class="text-center mb-16 fade-element">
+            <button onclick="downloadPass()" class="inline-flex items-center justify-center gap-3 bg-gold hover:bg-[#c49b2b] text-navy font-bold py-4 px-8 md:px-12 rounded-full transition duration-300 transform hover:scale-105 shadow-[0_8px_20px_rgba(212,175,55,0.4)] font-condensed tracking-widest uppercase">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                Guardar Pase de Abordar
+            </button>
+        </div>
+
+        <!-- Reloj de Cuenta Regresiva -->
+        <div class="mb-16 fade-element">
+            <h4 class="text-lg text-gray-500 mb-6 uppercase tracking-widest font-condensed">Faltan</h4>
+            <div class="flex justify-center gap-4 md:gap-8" id="countdown">
+                <div class="flex flex-col items-center">
+                    <div class="bg-navy text-white text-3xl md:text-5xl font-bold w-16 h-16 md:w-24 md:h-24 flex items-center justify-center rounded-xl shadow-lg font-condensed" id="days">00</div>
+                    <span class="mt-2 text-sm text-gray-600 font-semibold font-condensed uppercase">Días</span>
+                </div>
+                <div class="flex flex-col items-center">
+                    <div class="bg-navy text-white text-3xl md:text-5xl font-bold w-16 h-16 md:w-24 md:h-24 flex items-center justify-center rounded-xl shadow-lg font-condensed" id="hours">00</div>
+                    <span class="mt-2 text-sm text-gray-600 font-semibold font-condensed uppercase">Horas</span>
+                </div>
+                <div class="flex flex-col items-center">
+                    <div class="bg-navy text-white text-3xl md:text-5xl font-bold w-16 h-16 md:w-24 md:h-24 flex items-center justify-center rounded-xl shadow-lg font-condensed" id="minutes">00</div>
+                    <span class="mt-2 text-sm text-gray-600 font-semibold font-condensed uppercase">Min</span>
+                </div>
+                <div class="flex flex-col items-center">
+                    <div class="bg-gold text-navy text-3xl md:text-5xl font-bold w-16 h-16 md:w-24 md:h-24 flex items-center justify-center rounded-xl shadow-lg font-condensed" id="seconds">00</div>
+                    <span class="mt-2 text-sm text-gray-600 font-semibold font-condensed uppercase">Seg</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Ubicación y Mapa -->
+        <div class="bg-gray-50 rounded-2xl p-8 mb-12 shadow-inner fade-element">
+            <h3 class="text-2xl font-bold text-navy mb-4">Ubicación</h3>
+            <p class="text-lg text-gray-700 mb-6">Calle 32 Norte 2412, Azteca, C.P. 72310,<br> Puebla, Puebla.</p>
+            
+            <a href="https://maps.app.goo.gl/6wFSnBZWp8tnUg9h6" target="_blank" rel="noopener noreferrer" 
+               class="inline-flex items-center justify-center gap-2 bg-navy hover:bg-blue-800 text-white font-bold py-3 px-8 rounded-full transition duration-300 transform hover:scale-105 shadow-md mb-6">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                Ver en Google Maps
+            </a>
+        </div>
+
+        <!-- Botón Añadir al Calendario -->
+        <div class="fade-element mb-12">
+            <!-- Enlace generado para Google Calendar (Agregada la clase 'animate-heartbeat') -->
+            <a href="https://calendar.google.com/calendar/render?action=TEMPLATE&text=22+Aniversario+Atenas+Agencia+de+Viajes&dates=20260424T140000/20260424T200000&details=Celebra+con+nosotros+nuestro+22+Aniversario.&location=Calle+32+Norte+2412,+Azteca,+72310+Puebla,+Pue." 
+               target="_blank" 
+               class="inline-flex items-center justify-center gap-2 border-2 border-navy text-navy hover:bg-navy hover:text-white font-bold py-3 px-8 rounded-full transition duration-300 shadow-sm font-condensed tracking-wide animate-heartbeat">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                Añadir a mi Calendario
+            </a>
+        </div>
+
+    </main>
+
+    <!-- Footer Actualizado -->
+    <footer class="w-full bg-navy text-white text-center py-8 mt-auto relative z-10 font-condensed">
+        <p class="text-sm font-light text-gray-300">© 2026 Atenas Agencia de Viajes. Todos los derechos reservados.</p>
+    </footer>
+
+    <!-- LÓGICA JAVASCRIPT -->
+    <script>
+        // 0. Pantalla de Carga Inmersiva, Confeti Premium y Fuegos Artificiales
+        document.addEventListener("DOMContentLoaded", () => {
+            // Lógica de la pantalla de Check-In
+            setTimeout(() => {
+                // 1. Ocultamos el Check-In
+                document.getElementById('loader').classList.add('loader-hidden');
+                // 2. Liberamos el scroll de la página
+                document.getElementById('body-content').classList.remove('overflow-hidden');
+
+                // 3. Disparamos la explosión inicial de confeti justo al mostrar la invitación
+                const duration = 2500;
+                const end = Date.now() + duration;
+
+                (function frame() {
+                    confetti({ particleCount: 5, angle: 60, spread: 55, origin: { x: 0, y: 0.8 }, colors: ['#001233', '#D4AF37', '#ffffff'], zIndex: 100 });
+                    confetti({ particleCount: 5, angle: 120, spread: 55, origin: { x: 1, y: 0.8 }, colors: ['#001233', '#D4AF37', '#ffffff'], zIndex: 100 });
+                    if (Date.now() < end) { requestAnimationFrame(frame); }
+                }());
+            }, 2600); // 2.6 segundos de "procesamiento"
+
+            // Fuegos artificiales periódicos en el fondo
+            function randomInRange(min, max) { return Math.random() * (max - min) + min; }
+            
+            setInterval(function() {
+                confetti({
+                    particleCount: 40,
+                    angle: randomInRange(60, 120),
+                    spread: randomInRange(50, 70),
+                    origin: { x: randomInRange(0.1, 0.9), y: randomInRange(0.1, 0.5) },
+                    colors: ['#001233', '#D4AF37', '#ffffff'],
+                    zIndex: 0, // Se mantienen en el fondo detrás del pase de abordar
+                    ticks: 200,
+                    gravity: 0.8,
+                    scalar: 0.8
+                });
+            }, 3000); // Dispara un fuego artificial cada 3 segundos
+        });
+
+        // 1. Personalización Dinámica del Nombre con Auto-Ajuste
+        document.addEventListener("DOMContentLoaded", () => {
+            // Leemos la URL actual
+            const urlParams = new URLSearchParams(window.location.search);
+            // Buscamos la variable "invitado", si no existe ponemos el texto por defecto
+            const guestName = urlParams.get('invitado');
+            
+            if (guestName) {
+                const mainNameEl = document.getElementById('guest-name');
+                const boardNameEl = document.getElementById('board-guest-name');
+                const nameLength = guestName.length;
+                
+                // Aplicamos al Título Principal
+                if (mainNameEl) {
+                    mainNameEl.textContent = guestName;
+                    
+                    // Auto-ajuste para nombres muy largos en el título principal
+                    if (nameLength > 25) {
+                        mainNameEl.classList.remove('text-4xl', 'md:text-6xl');
+                        mainNameEl.classList.add('text-2xl', 'md:text-4xl');
+                    } else if (nameLength > 15) {
+                        mainNameEl.classList.remove('text-4xl', 'md:text-6xl');
+                        mainNameEl.classList.add('text-3xl', 'md:text-5xl');
+                    }
+                }
+                
+                // Aplicamos al Pase de Abordar
+                if(boardNameEl) {
+                    boardNameEl.textContent = guestName;
+                    
+                    // Auto-ajuste para nombres muy largos en el espacio reducido del pase
+                    if (nameLength > 25) {
+                        boardNameEl.classList.remove('text-lg', 'md:text-xl');
+                        boardNameEl.classList.add('text-xs', 'md:text-sm');
+                    } else if (nameLength > 15) {
+                        boardNameEl.classList.remove('text-lg', 'md:text-xl');
+                        boardNameEl.classList.add('text-sm', 'md:text-base');
+                    }
+                }
+            }
+        });
+
+        // 2. Lógica de la Cuenta Regresiva
+        // Establecemos la fecha del evento: 24 de abril de 2026 a las 14:00 hrs
+        const countDownDate = new Date("Apr 24, 2026 14:00:00").getTime();
+
+        const countdownFunction = setInterval(function() {
+            const now = new Date().getTime();
+            const distance = countDownDate - now;
+
+            // Cálculos matemáticos para días, horas, minutos y segundos
+            const days = Math.floor(distance / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+
+            // Inyectamos los resultados en el HTML (añadiendo ceros si es menor a 10)
+            document.getElementById("days").innerHTML = days < 10 ? "0" + days : days;
+            document.getElementById("hours").innerHTML = hours < 10 ? "0" + hours : hours;
+            document.getElementById("minutes").innerHTML = minutes < 10 ? "0" + minutes : minutes;
+            document.getElementById("seconds").innerHTML = seconds < 10 ? "0" + seconds : seconds;
+
+            // Si la cuenta regresiva termina
+            if (distance < 0) {
+                clearInterval(countdownFunction);
+                document.getElementById("countdown").innerHTML = "<div class='text-3xl font-bold text-navy'>¡El gran día ha llegado!</div>";
+            }
+        }, 1000);
+
+        // 3. Efectos de Aparición al hacer Scroll (Intersection Observer)
+        const observerOptions = {
+            root: null,
+            rootMargin: '0px',
+            threshold: 0.15 // El elemento aparecerá cuando el 15% sea visible en pantalla
+        };
+
+        const observer = new IntersectionObserver((entries, observer) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    // Agregamos la clase que dispara la animación CSS
+                    entry.target.classList.add('visible');
+                    // Dejamos de observar el elemento para que la animación no se repita
+                    observer.unobserve(entry.target);
+                }
+            });
+        }, observerOptions);
+
+        // Seleccionamos todos los elementos con la clase 'fade-element'
+        document.querySelectorAll('.fade-element').forEach((el) => {
+            observer.observe(el);
+        });
+
+        // 4. Función para Descargar el Pase de Abordar
+        window.downloadPass = function() {
+            const passElement = document.getElementById('boarding-pass');
+            
+            // Pausamos el efecto de brillo momentáneamente para no capturarlo a medias
+            passElement.classList.remove('shine-effect');
+            
+            html2canvas(passElement, {
+                scale: 2, // Toma la foto en alta resolución
+                backgroundColor: null, // Mantiene los bordes redondeados y fondos transparentes
+                useCORS: true // Permite capturar imágenes externas como el logo
+            }).then(canvas => {
+                const link = document.createElement('a');
+                link.download = 'Pase_ATN_22Aniversario.png';
+                link.href = canvas.toDataURL('image/png');
+                link.click(); // Fuerza la descarga automática
+                
+                // Restauramos el efecto de brillo
+                passElement.classList.add('shine-effect');
+            });
+        };
+    </script>
+</body>
+</html>
